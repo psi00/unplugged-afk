@@ -9,7 +9,7 @@
 
 ## Prerequisites & Installation
 
-- **Mod Loader:** Fabric
+- **Mod Loader:** Fabric only
 - **Minecraft Version:** 1.19.2 up to 26.2
 
 ## Features
