@@ -30,12 +30,13 @@ import com.sakuraryoko.unplugged_afk.api.state.UnpluggedState;
 import com.sakuraryoko.unplugged_afk.api.state.UnpluggedStatus;
 import com.sakuraryoko.unplugged_afk.impl.events.PlayerEventsHandler;
 import com.sakuraryoko.unplugged_afk.impl.events.ServerEventsHandler;
+import com.sakuraryoko.unplugged_afk.impl.mixins.IMixinPlayerList;
 import com.sakuraryoko.unplugged_afk.impl.modinit.InitWrap;
 import com.sakuraryoko.unplugged_afk.impl.player.PlayerManager;
 import org.jetbrains.annotations.ApiStatus;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
-//#if MC >= 1.21.10
+//#if MC >= 1.21.8
 //$$ import org.slf4j.Logger;
 //$$ import org.slf4j.LoggerFactory;
 //#endif
@@ -61,11 +62,14 @@ import com.mojang.authlib.GameProfile;
 //$$ import net.minecraft.server.players.NameAndId;
 //$$ import net.minecraft.server.players.OldUsersConverter;
 //$$ import net.minecraft.world.item.component.ResolvableProfile;
+//#endif
+//#if MC >= 1.21.8
 //$$ import net.minecraft.world.level.storage.TagValueInput;
 //$$ import net.minecraft.world.level.storage.ValueInput;
 //$$ import net.minecraft.util.ProblemReporter;
 //#endif
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoPacket;
@@ -100,7 +104,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.SkullBlockEntity;
 
-//#if MC >= 1.21.10
+//#if MC >= 1.21.8
 //$$ import com.sakuraryoko.unplugged_afk.impl.Reference;
 //#endif
 import com.sakuraryoko.unplugged_afk.impl.UnpluggedAfk;
@@ -265,7 +269,8 @@ public class UnpluggedServerPlayer extends ServerPlayer
 			//$$ {
 				//$$ temp = p;
 			//$$ }
-			//$$ server.execute(() -> createFromConfigPhase2(server, level, temp, state, pos, game));
+			//$$ final GameProfile finalProfile = temp;
+			//$$ server.execute(() -> createFromConfigPhase2(server, level, finalProfile, state, pos, game));
 		//$$ });
 		//#elseif MC >= 1.20.2
 		//$$ GameProfile tempProfile = profile;
@@ -276,7 +281,8 @@ public class UnpluggedServerPlayer extends ServerPlayer
 			//$$ {
 				//$$ temp = opt.get();
 			//$$ }
-			//$$ createFromConfigPhase2(server, level, temp, state, pos, game);
+			//$$ final GameProfile finalProfile = temp;
+			//$$ server.execute(() -> createFromConfigPhase2(server, level, finalProfile, state, pos, game));
 		//$$ });
 		//#else
 		if (profile.getProperties().containsKey("textures"))
@@ -286,7 +292,8 @@ public class UnpluggedServerPlayer extends ServerPlayer
 			profile = result.get();
 		}
 
-		createFromConfigPhase2(server, level, profile, state, pos, game);
+		final GameProfile finalProfile = profile;
+		server.execute(() -> createFromConfigPhase2(server, level, finalProfile, state, pos, game));
 		//#endif
 	}
 
@@ -324,9 +331,8 @@ public class UnpluggedServerPlayer extends ServerPlayer
 		pl.placeNewPlayer(new UnpluggedConnection(PacketFlow.SERVERBOUND), shadow);
 		//#endif
 
-		//#if MC >= 1.21.10
-		//$$ loadPlayerNbt(shadow);
-		//#endif
+		loadPlayerNbt(shadow);
+
 		shadow.setHealth(20.0f);
 		shadow.connection.teleport(pos.x(), pos.y(), pos.z(), pos.yaw(), pos.pitch());
 		shadow.gameMode.changeGameModeForPlayer(gameType);
@@ -406,7 +412,11 @@ public class UnpluggedServerPlayer extends ServerPlayer
 			PlayerEventsHandler.getInstance().addShouldHideJoin(name);
 		}
 
-		pl.remove(player);
+		server.executeBlocking(() ->
+		                       {
+			                       ((IMixinPlayerList) server.getPlayerList()).unplugged$save(player);
+			                       server.getPlayerList().remove(player);
+		                       });
 		player.connection.disconnect(kickMsg);
 
 		//#if MC >= 1.20.1
@@ -509,6 +519,48 @@ public class UnpluggedServerPlayer extends ServerPlayer
 				//$$ });
 			//$$ }
 		//$$ }
+	//#elseif MC >= 1.21.8
+	//$$ private final static Logger DUMB_LOGGER = LoggerFactory.getLogger(Reference.MOD_ID);
+	//$$ private static void loadPlayerNbt(UnpluggedServerPlayer player)
+	//$$ {
+		//$$ try (ProblemReporter.ScopedCollector logger = new ProblemReporter.ScopedCollector(player.problemPath(), DUMB_LOGGER))
+		//$$ {
+			//$$ Optional<ValueInput> opt = player.level().getServer().getPlayerList().load(player, logger);
+			//$$ if (opt.isPresent())
+			//$$ {
+				//$$ ValueInput data = opt.get();
+				//$$ player.load(data);
+				//$$ player.loadAndSpawnEnderPearls(data);
+				//$$ player.loadAndSpawnParentVehicle(data);
+			//$$ }
+		//$$ }
+	//$$ }
+	//#elseif MC >= 1.20.6
+	//$$ private static void loadPlayerNbt(UnpluggedServerPlayer player)
+	//$$ {
+		//$$ MinecraftServer server = player.getServer();
+
+		//$$ if (server != null)
+		//$$ {
+			//$$ Optional<CompoundTag> opt = server.getPlayerList().load(player);
+			//$$ opt.ifPresent(player::load);
+		//$$ }
+	//$$ }
+	//#else
+	private static void loadPlayerNbt(UnpluggedServerPlayer player)
+	{
+		MinecraftServer server = player.getServer();
+
+		if (server != null)
+		{
+			CompoundTag tags = server.getPlayerList().load(player);
+
+			if (tags != null)
+			{
+				player.load(tags);
+			}
+		}
+	}
 	//#endif
 
 	//#if MC >= 1.20.2
@@ -744,7 +796,11 @@ public class UnpluggedServerPlayer extends ServerPlayer
 				final Component reason = InitWrap.text().formatTextSafe("Invalid");
 
 				this.kill(reason);
-				server.getPlayerList().remove(this);
+				server.executeBlocking(() ->
+				                       {
+										   ((IMixinPlayerList) server.getPlayerList()).unplugged$save(this);
+										   server.getPlayerList().remove(this);
+									   });
 
 				if (!ConfigWrap.mess().hideUnpluggedJoin)
 				{
@@ -842,7 +898,11 @@ public class UnpluggedServerPlayer extends ServerPlayer
 
 				Component reason = InitWrap.text().formatTextSafe(mess);
 				this.kill(reason);
-				pl.remove(this);
+				server.executeBlocking(() ->
+				                       {
+										   ((IMixinPlayerList) server.getPlayerList()).unplugged$save(this);
+										   server.getPlayerList().remove(this);
+									   });
 
 				if (ConfigWrap.mess().hideUnpluggedJoin)
 				{

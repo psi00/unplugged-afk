@@ -57,6 +57,7 @@ import com.sakuraryoko.unplugged_afk.impl.config.UnpluggedConfigHandler;
 import com.sakuraryoko.unplugged_afk.impl.config.data.options.PlayerOptions;
 import com.sakuraryoko.unplugged_afk.impl.events.PlayerEventsHandler;
 import com.sakuraryoko.unplugged_afk.impl.events.ServerEventsHandler;
+import com.sakuraryoko.unplugged_afk.impl.mixins.IMixinPlayerList;
 import com.sakuraryoko.unplugged_afk.impl.modinit.InitWrap;
 import com.sakuraryoko.unplugged_afk.impl.modinit.UnpluggedInit;
 import com.sakuraryoko.unplugged_afk.impl.player.*;
@@ -672,7 +673,11 @@ public class UnpluggedAdminCommand implements IServerCommand
                             Component name = sp.getName();
                             Component message = Component.literal("Killed");
                             sp.kill(message);
-                            playerList.remove(player);
+                            server.executeBlocking(() ->
+                                                   {
+                                                       ((IMixinPlayerList) server.getPlayerList()).unplugged$save(player);
+                                                       server.getPlayerList().remove(player);
+                                                   });
 
                             if (ConfigWrap.mess().hideUnpluggedJoin)
                             {

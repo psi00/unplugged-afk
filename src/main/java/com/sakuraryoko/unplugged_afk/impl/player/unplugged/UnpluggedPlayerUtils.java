@@ -47,9 +47,9 @@ import net.minecraft.server.players.PlayerList;
 //#endif
 
 import com.sakuraryoko.unplugged_afk.api.UnpluggedAfkEvents;
-import com.sakuraryoko.unplugged_afk.impl.UnpluggedAfk;
 import com.sakuraryoko.unplugged_afk.impl.config.ConfigWrap;
 import com.sakuraryoko.unplugged_afk.impl.events.PlayerEventsHandler;
+import com.sakuraryoko.unplugged_afk.impl.mixins.IMixinPlayerList;
 import com.sakuraryoko.unplugged_afk.impl.modinit.InitWrap;
 import com.sakuraryoko.unplugged_afk.impl.player.PlayerManager;
 import com.sakuraryoko.unplugged_afk.impl.player.wrap.ProfileWrap;
@@ -287,7 +287,12 @@ public class UnpluggedPlayerUtils
 
 			String str = ConfigWrap.mess().unpluggedReplaced;
 			sp.kill(InitWrap.text().formatText(str));
-			playerList.remove(player);
+			MinecraftServer server = playerList.getServer();
+			server.executeBlocking(() ->
+			                       {
+				                       ((IMixinPlayerList) server.getPlayerList()).unplugged$save(player);
+									   server.getPlayerList().remove(player);
+								   });
 		}
 	}
 
