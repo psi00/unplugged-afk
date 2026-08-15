@@ -90,9 +90,12 @@ public abstract class MixinPlayerList_core
 	}
 
 	@Inject(method = "remove", at = @At("HEAD"), cancellable = true)
-	private void suppressRemove(ServerPlayer player, CallbackInfo ci) {
+	private void unplugged$suppressDuplicateRemove(ServerPlayer player, CallbackInfo ci)
+	{
 		ServerPlayer playerInList = this.playersByUUID.get(player.getUUID());
-		if (player != playerInList) {
+
+		if (player != playerInList)
+		{
 			ci.cancel();
 		}
 	}
@@ -146,16 +149,19 @@ public abstract class MixinPlayerList_core
 	//$$ private ServerPlayer unplugged$respawnShadow(MinecraftServer server, ServerLevel level, GameProfile profile,
 													//$$ ClientInformation ci,
 													//$$ Operation<ServerPlayer> original,
-													//$$ @Local(argsOnly = true) ServerPlayer player)
+													//$$ @Local(argsOnly = true) ServerPlayer player,
+													//$$ @Local(argsOnly = true) boolean keepEverything)
 //#elseif MC >= 1.19.3
 	//$$ private ServerPlayer unplugged$respawnShadow(MinecraftServer server, ServerLevel level, GameProfile profile,
 													//$$ Operation<ServerPlayer> original,
-													//$$ @Local(argsOnly = true) ServerPlayer player)
+													//$$ @Local(argsOnly = true) ServerPlayer player,
+													//$$ @Local(argsOnly = true) boolean keepEverything)
 //#else
 	private ServerPlayer unplugged$respawnShadow(MinecraftServer server, ServerLevel level, GameProfile profile,
 												 ProfilePublicKey profilePublicKey,
 												 Operation<ServerPlayer> original,
-												 @Local(argsOnly = true) ServerPlayer player)
+												 @Local(argsOnly = true) ServerPlayer player,
+	                                             @Local(argsOnly = true) boolean keepEverything)
 //#endif
 	{
 		//#if MC >= 1.20.2
@@ -163,6 +169,7 @@ public abstract class MixinPlayerList_core
 		//$$ {
 			//$$ UnpluggedServerPlayer newSp = UnpluggedServerPlayer.respawnUnplugged(server, level, profile, ci);
 			//$$ UnpluggedPlayerUtils.respawnUnpluggedAfk(profile, sp, newSp);
+			//$$ newSp.restoreFrom(player, keepEverything);
 			//$$ return newSp;
 		//$$ }
 
@@ -172,6 +179,7 @@ public abstract class MixinPlayerList_core
 		//$$ {
 			//$$ UnpluggedServerPlayer newSp = UnpluggedServerPlayer.respawnUnplugged(server, level, profile);
 			//$$ UnpluggedPlayerUtils.respawnUnpluggedAfk(profile, sp, newSp);
+			//$$ newSp.restoreFrom(player, keepEverything);
 			//$$ return newSp;
 		//$$ }
 
@@ -181,6 +189,7 @@ public abstract class MixinPlayerList_core
 		{
 			UnpluggedServerPlayer newSp = UnpluggedServerPlayer.respawnUnplugged(server, level, profile, profilePublicKey);
 			UnpluggedPlayerUtils.respawnUnpluggedAfk(profile, sp, newSp);
+			newSp.restoreFrom(player, keepEverything);
 			return newSp;
 		}
 

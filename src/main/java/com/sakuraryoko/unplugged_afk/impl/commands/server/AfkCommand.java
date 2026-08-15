@@ -142,13 +142,7 @@ public class AfkCommand implements IServerCommand
         final int finalTime = time;
         final String finalReason = reason;
 
-        server.execute(() ->
-                       {
-                           if (UnpluggedServerPlayer.createFromPlayer(server, player, finalTime, finalReason) == null)
-                           {
-                               UnpluggedAfk.LOGGER.error("Error creating Unplugged Player from: {}", player.getName().getString());
-                           }
-                       });
+        server.execute(() -> UnpluggedServerPlayer.createFromPlayer(server, player, finalTime, finalReason));
 
         UnpluggedAfk.debugLog("setUnpluggedAfk: player: ['{}'/{}] // T: {}m, R: '{}'", ProfileWrap.name(profile), ProfileWrap.id(profile), time, reason);
         return 1;
